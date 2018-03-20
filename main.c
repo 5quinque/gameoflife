@@ -7,127 +7,150 @@
 #define ROWS 20
 #define COLS 40
 
-void newgame();
 void update();
 void printgame();
+void addlife(int row, int col);
 void addrandomlife(int s);
+void handlekeypress(int c);
+void printpause();
 int countneighbour(int row, int col);
 
 int row_start, col_start;
 char board[ROWS][COLS];
+char tempboard[ROWS][COLS];
+int tps = 10;
+int pause = 0;
+int screen_rows, screen_cols;
 
-/*
- * Any live cell with fewer than two live neighbours dies, as if caused by underpopulation.
- * Any live cell with two or three live neighbours lives on to the next generation.
- * Any live cell with more than three live neighbours dies, as if by overpopulation.
- * Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
- *
- */
 int main() {
-  int screen_rows, screen_cols;
-  char mesg[]="CENTER";
-  char empty = '|';
   int ticks = 0;
-  srand(time(NULL));
+  struct timespec ts = {0, 10000000L}; //ts.tv_sec = 0; ts.tv_nsec = 10000000L;
 
-  struct timespec ts = {0, 100000000L };
+  srand(time(NULL));
+  int c;
+
+  MEVENT event;
 
   initscr();
+  cbreak();
+  noecho();
+  start_color();
+
+  // Life
+  init_pair(2, COLOR_WHITE, COLOR_WHITE);
+  // Death
+  init_pair(3, COLOR_WHITE, COLOR_BLACK);
+
+  // Pause
+  init_pair(4, COLOR_CYAN, COLOR_MAGENTA);
+  init_pair(8, COLOR_CYAN, COLOR_YELLOW);
+
+  timeout(0);
+  keypad(stdscr, TRUE);
+  mousemask(ALL_MOUSE_EVENTS, NULL);
+
   getmaxyx(stdscr, screen_rows, screen_cols);
 
   row_start = (screen_rows / 2 - ROWS / 2);
   col_start = (screen_cols / 2 - COLS / 2);
 
-  newgame();
-  addrandomlife(100);
-
-  for (int y = 0; y < ROWS; y++) {
-    for (int x = 0; x < COLS; x++) {
-      mvaddch(row_start + y, col_start + x, empty);
-    }
-  }
-  mvprintw(screen_rows / 2, (screen_cols - strlen(mesg))/2, "%s", mesg);
+  addrandomlife(200);
 
   while (1) {
+    c = getch();
+    if(c == KEY_MOUSE && getmouse(&event) == OK) {
+      addlife(event.y, event.x);
+    } else if (c == KEY_UP || c == KEY_DOWN || c == ' ') {
+      handlekeypress(c);
+    }
+      
     ticks++;
-    mvprintw(screen_rows - 1, 2, "Ticks: %d", ticks);
-
-    update();
+    
+    if (ticks % tps == 0 && !pause) {
+      update();
+    }
     printgame();
+    mvprintw(screen_rows - 1, 2, "Update Interval: %d\t", tps);
 
     refresh();
     nanosleep (&ts, NULL);
   }
   endwin();
 
-  int count = countneighbour(4, 4);
-  printf("count: %d\n", count);
-
   return 0;
+}
+
+void handlekeypress(int c) {
+  switch (c) {
+    case KEY_UP:
+      tps = tps < 20 ? tps - 1 : tps - 10;
+      tps = tps < 1 ? 1 : tps;
+      break;
+    case KEY_DOWN:
+      tps = tps < 10 ? tps + 1 : tps + 10;
+      break;
+    case ' ':
+      pause = pause ? 0 : 1;
+      if (pause) {
+        printpause();
+      } else {
+        move (0, 0);
+        clrtoeol();
+      }
+      break;
+    }
+}
+
+void printpause() {
+  int c;
+  for (int x = 0; x < (screen_cols / 6) + 1; x++) {
+    c = 4 << (1 & x);
+    attron(COLOR_PAIR(c));
+    mvprintw(0, x * 6, "PAUSED");
+    attroff(COLOR_PAIR(c));
+  }
 }
 
 void update() {
   int count;
-
   for (int y = 0; y < ROWS; y++) {
     for (int x = 0; x < COLS; x++) {
       count = countneighbour(y, x);
-      //printf("count: %d\n", count);
-
       if (board[y][x] == 1) {
-        if (count < 2) {
-          board[y][x] = 0;
-        } else if(count == 2 || count == 3) {
-          board[y][x] = 1;
-        } else if (count > 3) {
-          board[y][x] = 0;
-        }
-      } else {
-        if (count == 3) {
-          board[y][x] = 1;
-        }
+        tempboard[y][x] = (count < 2 || count > 3) ? 0 : 1;
+      } else if (count == 3) {
+        tempboard[y][x] = 1;
       }
-
     }
   }
+  memcpy(board, tempboard, sizeof(tempboard));
 }
 
 void printgame() {
-  char c;
+  int c;
   for (int y = 0; y < ROWS; y++) {
     for (int x = 0; x < COLS; x++) {
-      switch (board[y][x]) {
-        case 0:
-          c = ' ';
-          break;
-        case 1:
-          c = 'x';
-          break;
-      }
-      mvaddch(y + row_start, x + col_start, c);
+      c = board[y][x] ^ 3;
+      attron(COLOR_PAIR(c));
+      mvaddch(y + row_start, x + col_start, ' ');
+      attroff(COLOR_PAIR(c));
     }
   }
-}
-
-void newgame() {
-  for (int y = 0; y < ROWS; y++)
-    for (int x = 0; x < COLS; x++)
-      board[y][x] = 0;
 }
 
 int countneighbour(int row, int col) {
   int count = 0;
-
   for (int y = row - 1; y < row + 2; y++) {
     for (int x = col - 1; x < col + 2; x++) {
-
       if (y == row && x == col) continue;
       if (board[y][x] == 1) count++;
-
     }
   }
-
   return count;
+}
+
+void addlife(int row, int col) {
+  board[row - row_start][col - col_start] = 1;
 }
 
 void addrandomlife(int sperm_count) {
@@ -135,7 +158,6 @@ void addrandomlife(int sperm_count) {
   for (int i = 0; i < sperm_count; i++) {
     r = rand() % ROWS;
     c = rand() % COLS;
-
     board[r][c] = 1;
   }
 }
