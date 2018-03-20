@@ -1,18 +1,19 @@
 #include <ncurses.h>
+// memcpy()
 #include <string.h> 
-
+// time(), nanosleep()
 #include <time.h>
+// srand(), rand()
 #include <stdlib.h>
 
-#define ROWS 20
-#define COLS 40
+#define ROWS 30
+#define COLS 60
 
 void update();
 void printgame();
-void addlife(int row, int col);
+void togglelife(int row, int col);
 void addrandomlife(int s);
-void handlekeypress(int c);
-void printpause();
+void handleinput(int c);
 int countneighbour(int row, int col);
 
 int row_start, col_start;
@@ -20,16 +21,16 @@ char board[ROWS][COLS];
 char tempboard[ROWS][COLS];
 int tps = 10;
 int pause = 0;
+int running = 1;
 int screen_rows, screen_cols;
+MEVENT event;
 
 int main() {
   int ticks = 0;
   struct timespec ts = {0, 10000000L}; //ts.tv_sec = 0; ts.tv_nsec = 10000000L;
-
-  srand(time(NULL));
   int c;
 
-  MEVENT event;
+  srand(time(NULL));
 
   initscr();
   cbreak();
@@ -39,38 +40,32 @@ int main() {
   // Life
   init_pair(2, COLOR_WHITE, COLOR_WHITE);
   // Death
-  init_pair(3, COLOR_WHITE, COLOR_BLACK);
+  init_pair(3, COLOR_GREEN, COLOR_GREEN);
 
-  // Pause
-  init_pair(4, COLOR_CYAN, COLOR_MAGENTA);
-  init_pair(8, COLOR_CYAN, COLOR_YELLOW);
-
-  timeout(0);
+  nodelay(stdscr, TRUE);
   keypad(stdscr, TRUE);
   mousemask(ALL_MOUSE_EVENTS, NULL);
 
   getmaxyx(stdscr, screen_rows, screen_cols);
-
   row_start = (screen_rows / 2 - ROWS / 2);
   col_start = (screen_cols / 2 - COLS / 2);
 
+  // Plant the seed of life
   addrandomlife(200);
 
-  while (1) {
-    c = getch();
-    if(c == KEY_MOUSE && getmouse(&event) == OK) {
-      addlife(event.y, event.x);
-    } else if (c == KEY_UP || c == KEY_DOWN || c == ' ') {
-      handlekeypress(c);
-    }
-      
+  while (running) {
     ticks++;
-    
-    if (ticks % tps == 0 && !pause) {
+
+    c = getch();
+    if (~c >> 31)
+      handleinput(c);
+      
+    if (ticks % tps == 0 && !pause)
       update();
-    }
+
     printgame();
-    mvprintw(screen_rows - 1, 2, "Update Interval: %d\t", tps);
+    mvprintw(screen_rows - 1, 0, "Update Interval: %d\t", tps);
+    move (0, 0);
 
     refresh();
     nanosleep (&ts, NULL);
@@ -80,8 +75,12 @@ int main() {
   return 0;
 }
 
-void handlekeypress(int c) {
+void handleinput(int c) {
   switch (c) {
+    case KEY_MOUSE:
+      getmouse(&event);
+      togglelife(event.y, event.x);
+      break;
     case KEY_UP:
       tps = tps < 20 ? tps - 1 : tps - 10;
       tps = tps < 1 ? 1 : tps;
@@ -90,25 +89,16 @@ void handlekeypress(int c) {
       tps = tps < 10 ? tps + 1 : tps + 10;
       break;
     case ' ':
-      pause = pause ? 0 : 1;
-      if (pause) {
-        printpause();
-      } else {
-        move (0, 0);
-        clrtoeol();
-      }
+      pause ^= 1;
+      move (0, 0);
+      clrtoeol();
+      if (pause)
+        mvprintw(0, 1, "PAUSED");
+      break;
+    case 'q':
+      running = 0;
       break;
     }
-}
-
-void printpause() {
-  int c;
-  for (int x = 0; x < (screen_cols / 6) + 1; x++) {
-    c = 4 << (1 & x);
-    attron(COLOR_PAIR(c));
-    mvprintw(0, x * 6, "PAUSED");
-    attroff(COLOR_PAIR(c));
-  }
 }
 
 void update() {
@@ -132,7 +122,7 @@ void printgame() {
     for (int x = 0; x < COLS; x++) {
       c = board[y][x] ^ 3;
       attron(COLOR_PAIR(c));
-      mvaddch(y + row_start, x + col_start, ' ');
+      mvaddch(y + row_start, x + col_start, '.');
       attroff(COLOR_PAIR(c));
     }
   }
@@ -149,8 +139,11 @@ int countneighbour(int row, int col) {
   return count;
 }
 
-void addlife(int row, int col) {
-  board[row - row_start][col - col_start] = 1;
+void togglelife(int row, int col) {
+  int brow = row - row_start;
+  int bcol = col - col_start;
+  if ( ~(brow | bcol) >> 31 ) 
+    board[brow][bcol] ^= 1;
 }
 
 void addrandomlife(int sperm_count) {
