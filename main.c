@@ -19,31 +19,38 @@ int countneighbour(int row, int col);
 int row_start, col_start;
 char board[ROWS][COLS];
 char tempboard[ROWS][COLS];
-int tps = 10;
 int pause = 0;
 int running = 1;
 int screen_rows, screen_cols;
 MEVENT event;
 
 int main() {
-  int ticks = 0;
-  struct timespec ts = {0, 10000000L}; //ts.tv_sec = 0; ts.tv_nsec = 10000000L;
+  struct timespec ts = {0, 100000000L}; //ts.tv_sec = 0; ts.tv_nsec = 10000000L;
   int c;
 
   srand(time(NULL));
 
   initscr();
+
+  // Hide the cursor
+  curs_set(0);
+
+  // Don't show keypress on screen
   cbreak();
   noecho();
-  start_color();
 
+  // Enable colours
+  start_color();
   // Life
   init_pair(2, COLOR_WHITE, COLOR_WHITE);
   // Death
   init_pair(3, COLOR_GREEN, COLOR_GREEN);
 
+  // Stop getch() from blocking
   nodelay(stdscr, TRUE);
+  // Need this for mouse input ?
   keypad(stdscr, TRUE);
+
   mousemask(ALL_MOUSE_EVENTS, NULL);
 
   getmaxyx(stdscr, screen_rows, screen_cols);
@@ -54,22 +61,19 @@ int main() {
   addrandomlife(200);
 
   while (running) {
-    ticks++;
-
     c = getch();
     if (~c >> 31)
       handleinput(c);
       
-    if (ticks % tps == 0 && !pause)
+    if (!pause)
       update();
 
     printgame();
-    mvprintw(screen_rows - 1, 0, "Update Interval: %d\t", tps);
-    move (0, 0);
-
     refresh();
     nanosleep (&ts, NULL);
   }
+
+  // Clean up after ourselves
   endwin();
 
   return 0;
@@ -77,23 +81,18 @@ int main() {
 
 void handleinput(int c) {
   switch (c) {
+    // All mouse events, left/right/scroll
     case KEY_MOUSE:
       getmouse(&event);
       togglelife(event.y, event.x);
       break;
-    case KEY_UP:
-      tps = tps < 20 ? tps - 1 : tps - 10;
-      tps = tps < 1 ? 1 : tps;
-      break;
-    case KEY_DOWN:
-      tps = tps < 10 ? tps + 1 : tps + 10;
-      break;
     case ' ':
+      // toggle pause
       pause ^= 1;
-      move (0, 0);
+      move (row_start - 1, 0);
       clrtoeol();
       if (pause)
-        mvprintw(0, 1, "PAUSED");
+        mvprintw(row_start - 1, screen_cols / 2 - 3, "Paused");
       break;
     case 'q':
       running = 0;
