@@ -1,6 +1,6 @@
 #include <ncurses.h>
-// memcpy()
-#include <string.h> 
+// memcpy(), memset()
+#include <string.h>
 // time(), nanosleep()
 #include <time.h>
 // srand(), rand()
@@ -11,11 +11,11 @@ void printgame();
 void togglelife(int row, int col);
 void addrandomlife(int s);
 void handleinput(int c);
+void purgelife();
 int countneighbour(int row, int col);
 
 int **board;
 int **tempboard;
-int boardsize;
 int pause = 0;
 int running = 1;
 int screen_rows, screen_cols, game_columns;
@@ -39,9 +39,9 @@ int main() {
   // Enable colours
   start_color();
   // Life
-  init_pair(2, COLOR_WHITE, COLOR_WHITE);
+  init_pair(2, COLOR_GREEN, COLOR_GREEN);
   // Death
-  init_pair(3, COLOR_GREEN, COLOR_GREEN);
+  init_pair(3, COLOR_BLACK, COLOR_BLACK);
 
   // Stop getch() from blocking
   nodelay(stdscr, TRUE);
@@ -51,43 +51,28 @@ int main() {
   mousemask(ALL_MOUSE_EVENTS, NULL);
 
   getmaxyx(stdscr, screen_rows, screen_cols);
-
   game_columns = screen_cols / 2;
 
-  boardsize = screen_rows * sizeof(int*);
-  board = malloc(screen_rows * sizeof(int*));
-  tempboard = malloc(screen_rows * sizeof(int*));
+  board = malloc(screen_rows * sizeof(int *));
+  tempboard = malloc(screen_rows * sizeof(int *));
 
   for (int i = 0; i < screen_rows; i++) {
-    boardsize += game_columns * sizeof(int);
     board[i] = malloc(game_columns * sizeof(int));
     tempboard[i] = malloc(game_columns * sizeof(int));
-
-      for (int x = 0; x < game_columns; x++) {
-        board[i][x] = 0;
-      }
-      memcpy(tempboard[i], board[i], game_columns * sizeof(int));
   }
 
-  mvprintw(0,0, "%zu", boardsize);
-  mvprintw(0,10, "%d", screen_rows);
-  mvprintw(0,20, "%d", screen_cols);
-  mvprintw(0,30, "%d", game_columns);
-
   // Plant the seed of life
-  addrandomlife(2000);
+  addrandomlife((screen_rows * game_columns) / 5);
 
   while (running) {
     c = getch();
-    if (~c >> 31)
-      handleinput(c);
-      
-    if (!pause)
-      update();
+    if (~c >> 31) handleinput(c);
+
+    if (!pause) update();
 
     printgame();
     refresh();
-    nanosleep (&ts, NULL);
+    nanosleep(&ts, NULL);
   }
 
   // Clean up after ourselves
@@ -106,15 +91,17 @@ void handleinput(int c) {
     case ' ':
       // toggle pause
       pause ^= 1;
-      move (0, 0);
+      move(0, 0);
       clrtoeol();
-      if (pause)
-        mvprintw(0, screen_cols / 2 - 3, "Paused");
+      if (pause) mvprintw(0, screen_cols / 2 - 3, "Paused");
       break;
     case 'q':
       running = 0;
       break;
-    }
+    case 'c':
+      purgelife();
+      break;
+  }
 }
 
 void update() {
@@ -141,13 +128,8 @@ void printgame() {
     for (int x = 0; x < game_columns; x++) {
       c = board[y][x] ^ 3;
       attron(COLOR_PAIR(c));
-      if (board[y][x]) {
-        mvaddch(y + 1, x * 2, '.');
-        mvaddch(y + 1, x * 2 + 1, '.');
-      } else {
-        mvaddch(y + 1, x * 2, '-');
-        mvaddch(y + 1, x * 2 + 1, '-');
-      }
+      mvaddch(y + 1, x * 2, '.');
+      mvaddch(y + 1, x * 2 + 1, '.');
       attroff(COLOR_PAIR(c));
     }
   }
@@ -157,12 +139,9 @@ int countneighbour(int row, int col) {
   int count = 0;
   for (int y = row - 1; y < row + 2; y++) {
     for (int x = col - 1; x < col + 2; x++) {
-      if (
-        (y | x) >> 31 ||
-        y > screen_rows -1 ||
-        x > game_columns - 1 ||
-        (y == row && x == col)
-      ) continue;
+      if ((y | x) >> 31 || y > screen_rows - 1 || x > game_columns - 1 ||
+          (y == row && x == col))
+        continue;
       if (board[y][x] == 1) count++;
     }
   }
@@ -172,8 +151,18 @@ int countneighbour(int row, int col) {
 void togglelife(int row, int col) {
   int brow = row - 1;
   int bcol = col / 2;
-  if ( ~(brow | bcol) >> 31 ) 
+
+  if (~(brow | bcol) >> 31) {
     board[brow][bcol] ^= 1;
+    tempboard[brow][bcol] ^= 1;
+  }
+}
+
+void purgelife() {
+  for (int i = 0; i < screen_rows; i++) {
+    memset(board[i], 0, game_columns * sizeof(int));
+    memset(tempboard[i], 0, game_columns * sizeof(int));
+  }
 }
 
 void addrandomlife(int sperm_count) {
