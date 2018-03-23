@@ -91,9 +91,6 @@ void handleinput(int c) {
     case ' ':
       // toggle pause
       pause ^= 1;
-      move(0, 0);
-      clrtoeol();
-      if (pause) mvprintw(0, screen_cols / 2 - 3, "Paused");
       break;
     case 'q':
       running = 0;
@@ -117,8 +114,8 @@ void update() {
     }
   }
 
-  for (int p = 0; p < screen_rows; p++) {
-    memcpy(board[p], tempboard[p], game_columns * sizeof(int));
+  for (int i = 0; i < screen_rows; i++) {
+    memcpy(board[i], tempboard[i], game_columns * sizeof(int));
   }
 }
 
@@ -128,11 +125,12 @@ void printgame() {
     for (int x = 0; x < game_columns; x++) {
       c = board[y][x] ^ 3;
       attron(COLOR_PAIR(c));
-      mvaddch(y + 1, x * 2, '.');
-      mvaddch(y + 1, x * 2 + 1, '.');
+      mvaddch(y, x * 2, '.');
+      mvaddch(y, x * 2 + 1, '.');
       attroff(COLOR_PAIR(c));
     }
   }
+  if (pause) mvprintw(1, screen_cols / 2 - 3, "Paused");
 }
 
 int countneighbour(int row, int col) {
@@ -149,7 +147,7 @@ int countneighbour(int row, int col) {
 }
 
 void togglelife(int row, int col) {
-  int brow = row - 1;
+  int brow = row;
   int bcol = col / 2;
 
   if (~(brow | bcol) >> 31) {
