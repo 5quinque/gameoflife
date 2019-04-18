@@ -13,6 +13,7 @@ void addrandomlife(int s);
 void handleinput(int c);
 void purgelife();
 int countneighbour(int row, int col);
+void init_ncurses();
 
 int **board;
 int **tempboard;
@@ -27,6 +28,34 @@ int main() {
 
   srand(time(NULL));
 
+  init_ncurses();
+
+  // Plant the seed of life
+  addrandomlife((screen_rows * game_columns) / 5);
+
+  // Main loop
+  while (running) {
+    c = getch();
+    if (~c >> 31) handleinput(c);
+
+    if (!pause) update();
+
+    printgame();
+    refresh();
+    nanosleep(&ts, NULL);
+  }
+
+  // Clean up after ourselves
+  endwin();
+
+  return 0;
+}
+
+/*
+ * Set up variables and settings for ncurses
+ *
+ */
+void init_ncurses() {
   initscr();
 
   // Hide the cursor
@@ -53,6 +82,7 @@ int main() {
   getmaxyx(stdscr, screen_rows, screen_cols);
   game_columns = screen_cols / 2;
 
+  // Allocate memory for boards
   board = malloc(screen_rows * sizeof(int *));
   tempboard = malloc(screen_rows * sizeof(int *));
 
@@ -60,27 +90,12 @@ int main() {
     board[i] = malloc(game_columns * sizeof(int));
     tempboard[i] = malloc(game_columns * sizeof(int));
   }
-
-  // Plant the seed of life
-  addrandomlife((screen_rows * game_columns) / 5);
-
-  while (running) {
-    c = getch();
-    if (~c >> 31) handleinput(c);
-
-    if (!pause) update();
-
-    printgame();
-    refresh();
-    nanosleep(&ts, NULL);
-  }
-
-  // Clean up after ourselves
-  endwin();
-
-  return 0;
 }
 
+/*
+ * handle user input, mouse clicks, pause, quiting
+ *
+ */
 void handleinput(int c) {
   switch (c) {
     // All mouse events, left/right/scroll
@@ -101,6 +116,15 @@ void handleinput(int c) {
   }
 }
 
+/*
+ * apply the rules of life:
+ *
+ *   Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+ *   Any live cell with two or three live neighbours lives on to the next generation.
+ *   Any live cell with more than three live neighbours dies, as if by overpopulation.
+ *   Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+ *
+ */
 void update() {
   int count;
   for (int y = 0; y < screen_rows; y++) {
@@ -119,6 +143,10 @@ void update() {
   }
 }
 
+/* 
+ * Use ncurses to print our board to the terminal
+ *
+ */
 void printgame() {
   int c;
   for (int y = 0; y < screen_rows; y++) {
@@ -133,6 +161,14 @@ void printgame() {
   if (pause) mvprintw(1, screen_cols / 2 - 3, "Paused");
 }
 
+/*
+ * Count the number of alive cells adjacent to the given cell
+ *
+ * @param int row
+ * @param int col
+ *
+ * @return int count Number of alive cells adjacent
+ */
 int countneighbour(int row, int col) {
   int count = 0;
   for (int y = row - 1; y < row + 2; y++) {
@@ -156,6 +192,10 @@ void togglelife(int row, int col) {
   }
 }
 
+/*
+ * god giveth and god giveth away
+ * remove all life from the game
+ */
 void purgelife() {
   for (int i = 0; i < screen_rows; i++) {
     memset(board[i], 0, game_columns * sizeof(int));
@@ -163,6 +203,11 @@ void purgelife() {
   }
 }
 
+/*
+ * add random life to the game
+ *
+ * @param int sperm_count Amount of life to give
+ */
 void addrandomlife(int sperm_count) {
   int r, c;
   for (int i = 0; i < sperm_count; i++) {
