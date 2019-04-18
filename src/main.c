@@ -22,7 +22,8 @@ int running = 1;
 int screen_rows, screen_cols, game_columns;
 MEVENT event;
 
-int main() {
+int main()
+{
   struct timespec ts = {0, 100000000L};
   int c;
 
@@ -55,7 +56,8 @@ int main() {
  * Set up variables and settings for ncurses
  *
  */
-void init_ncurses() {
+void init_ncurses()
+{
   initscr();
 
   // Hide the cursor
@@ -96,7 +98,8 @@ void init_ncurses() {
  * handle user input, mouse clicks, pause, quiting
  *
  */
-void handleinput(int c) {
+void handleinput(int c)
+{
   switch (c) {
     // All mouse events, left/right/scroll
     case KEY_MOUSE:
@@ -125,7 +128,8 @@ void handleinput(int c) {
  *   Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
  *
  */
-void update() {
+void update()
+{
   int count;
   for (int y = 0; y < screen_rows; y++) {
     for (int x = 0; x < game_columns; x++) {
@@ -147,7 +151,8 @@ void update() {
  * Use ncurses to print our board to the terminal
  *
  */
-void printgame() {
+void printgame()
+{
   int c;
   for (int y = 0; y < screen_rows; y++) {
     for (int x = 0; x < game_columns; x++) {
@@ -169,7 +174,8 @@ void printgame() {
  *
  * @return int count Number of alive cells adjacent
  */
-int countneighbour(int row, int col) {
+int countneighbour(int row, int col)
+{
   int count = 0;
   for (int y = row - 1; y < row + 2; y++) {
     for (int x = col - 1; x < col + 2; x++) {
@@ -182,7 +188,11 @@ int countneighbour(int row, int col) {
   return count;
 }
 
-void togglelife(int row, int col) {
+/*
+ * toggle the life of given cell
+ */
+void togglelife(int row, int col)
+{
   int brow = row;
   int bcol = col / 2;
 
@@ -196,7 +206,8 @@ void togglelife(int row, int col) {
  * god giveth and god giveth away
  * remove all life from the game
  */
-void purgelife() {
+void purgelife()
+{
   for (int i = 0; i < screen_rows; i++) {
     memset(board[i], 0, game_columns * sizeof(int));
     memset(tempboard[i], 0, game_columns * sizeof(int));
@@ -208,7 +219,8 @@ void purgelife() {
  *
  * @param int sperm_count Amount of life to give
  */
-void addrandomlife(int sperm_count) {
+void addrandomlife(int sperm_count)
+{
   int r, c;
   for (int i = 0; i < sperm_count; i++) {
     r = rand() % screen_rows;
