@@ -11,8 +11,8 @@ make
 
 ## Controls
 
-**Left Click**  -- Toggle life
-**Space** -- Pause game
-**q** -- Quit game
-**c** -- Clear the board
+**Left Click** -- Toggle life  
+**Space** -- Pause game  
+**q** -- Quit game  
+**c** -- Clear the board  
 
